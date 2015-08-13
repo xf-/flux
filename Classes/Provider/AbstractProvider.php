@@ -268,7 +268,7 @@ class AbstractProvider implements ProviderInterface {
 		}
 		$formName = 'form';
 		$cacheKey = $this->getCacheKeyForStoredVariable($row, $formName);
-		if (FALSE === isset(self::$cache[$cacheKey])) {
+		if (FALSE === array_key_exists($cacheKey, self::$cache)) {
 			$formClassName = $this->resolveFormClassName($row);
 			if (NULL !== $formClassName) {
 				$form = call_user_func_array(array($formClassName, 'create'), array($row));
@@ -309,7 +309,7 @@ class AbstractProvider implements ProviderInterface {
 			return $this->grid;
 		}
 		$cacheKey = $this->getCacheKeyForStoredVariable($row, 'grid');
-		if (FALSE === isset(self::$cache[$cacheKey])) {
+		if (FALSE === array_key_exists($cacheKey, self::$cache)) {
 			$class = get_class($this);
 			$controllerName = substr(substr($class, strrpos($class, '\\') + 1), 0, -8);
 			$templatePathAndFilename = $this->getTemplatePathAndFilename($row);
@@ -390,7 +390,10 @@ class AbstractProvider implements ProviderInterface {
 	public function getTemplatePathAndFilename(array $row) {
 		unset($row);
 		if (0 === strpos($this->templatePathAndFilename, 'EXT:') || 0 !== strpos($this->templatePathAndFilename, '/')) {
-			return GeneralUtility::getFileAbsFileName($this->templatePathAndFilename);
+			$path = GeneralUtility::getFileAbsFileName($this->templatePathAndFilename);
+			if (TRUE === empty($path)) {
+				return NULL;
+			}
 		}
 		return $this->templatePathAndFilename;
 	}
@@ -439,13 +442,28 @@ class AbstractProvider implements ProviderInterface {
 	}
 
 	/**
+	 * Returns the page record with localisation applied, if any
+	 * exists in database.
+	 *
+	 * @return array
+	 */
+	protected function getPageValues() {
+		$record = $GLOBALS['TSFE']->page;
+		$localisation = $this->recordService->get('pages_language_overlay', '*', "pid = '" . $record['uid'] . "'");
+		if (FALSE === empty($localisation)) {
+			$record = RecursiveArrayUtility::merge($record, reset($localisation));
+		}
+		return $record;
+	}
+
+	/**
 	 * @param array $row
 	 * @return array|NULL
 	 */
 	public function getTemplateVariables(array $row) {
 		$variables = (array) $this->templateVariables;
 		$variables['record'] = $row;
-		$variables['page'] = $GLOBALS['TSFE']->page;
+		$variables['page'] = $this->getPageValues();
 		$variables['user'] = $GLOBALS['TSFE']->fe_user->user;
 		if (TRUE === file_exists($this->getTemplatePathAndFilename($row))) {
 			$variables['grid'] = $this->getGrid($row);
@@ -571,7 +589,8 @@ class AbstractProvider implements ProviderInterface {
 					}
 				}
 			}
-			$row[$fieldName] = $stored[$fieldName] = MiscellaneousUtility::cleanFlexFormXml($row[$fieldName], $removals);
+			$stored[$fieldName] = MiscellaneousUtility::cleanFlexFormXml($row[$fieldName], $removals);
+			$row[$fieldName] = $stored[$fieldName];
 			$reference->datamap[$this->tableName][$id][$fieldName] = $row[$fieldName];
 			$this->recordService->update($this->tableName, $stored);
 		}
@@ -650,10 +669,10 @@ class AbstractProvider implements ProviderInterface {
 	 * @return PreviewView
 	 */
 	protected function getPreviewView() {
-		$preview = TRUE === version_compare(TYPO3_version, '7.1', '<')
-			? 'FluidTYPO3\\Flux\\View\\LegacyPreviewView'
-			: 'FluidTYPO3\\Flux\\View\\PreviewView';
-
+		$preview = 'FluidTYPO3\\Flux\\View\\PreviewView';
+		if (TRUE === version_compare(TYPO3_version, '7.1', '<')) {
+			$preview = 'FluidTYPO3\\Flux\\View\\LegacyPreviewView';
+		}
 		return GeneralUtility::makeInstance('TYPO3\\CMS\\Extbase\\Object\\ObjectManager')->get($preview);
 	}
 

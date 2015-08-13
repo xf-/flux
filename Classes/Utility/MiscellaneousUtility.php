@@ -10,6 +10,7 @@ namespace FluidTYPO3\Flux\Utility;
 
 use FluidTYPO3\Flux\Form;
 use TYPO3\CMS\Backend\Utility\IconUtility;
+use TYPO3\CMS\Core\Imaging\GraphicalFunctions;
 use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -27,7 +28,7 @@ class MiscellaneousUtility {
 	/**
 	 * @var array
 	 */
-	private static $allowedIconTypes = array('png', 'gif');
+	private static $allowedIconTypes = array('svg', 'png', 'gif');
 
 	/**
 	 * @param integer $contentElementUid
@@ -85,10 +86,27 @@ class MiscellaneousUtility {
 			$iconMatchPattern = $iconPathAndName . '.{' . $allowedExtensions . '}';
 			$filesInFolder = (TRUE === is_dir($iconFolder) ? glob($iconMatchPattern, GLOB_BRACE) : array());
 			$iconFile = (TRUE === is_array($filesInFolder) && 0 < count($filesInFolder) ? reset($filesInFolder) : NULL);
-			$iconRelPathAndFilename = (FALSE === is_null($iconFile)) ? $iconAbsoluteUrl . str_replace($iconFolder, '', $iconFile) : NULL;
+			$iconRelPathAndFilename = (NULL !== $iconFile) ? $iconAbsoluteUrl . str_replace($iconFolder, '', $iconFile) : NULL;
 			return $iconRelPathAndFilename;
 		}
 		return NULL;
+	}
+
+	/**
+	 * Returns a generated icon file into typo3temp/pics
+	 * @param string $originalFile
+	 * @param integer $width
+	 * @param integer $height
+	 * @return string
+	 */
+	public static function createIcon($originalFile, $width, $height) {
+		/** @var GraphicalFunctions $image */
+		$image = GeneralUtility::makeInstance('TYPO3\CMS\Core\Imaging\GraphicalFunctions');
+		$image->absPrefix = PATH_site;
+		$image->png_truecolor = TRUE;
+		$image->init();
+		$newResource = $image->imageMagickConvert($originalFile, 'png', $width, $height, '', '', array(), TRUE);
+		return str_replace(PATH_site, '/', $newResource[3]);
 	}
 
 	/**

@@ -90,6 +90,10 @@ class ContentService implements SingletonInterface {
 			// Parameters were passed in a hyphen-glued string, created by Flux and passed into command.
 			list ($pid, $subCommand, $relativeUid, $parentUid, $possibleArea, $possibleColPos) = explode('-', $parameters[1]);
 			$parentUid = (integer) $parentUid;
+			// Parent into same grid results in endless loop
+			if ('move' === $command && (integer) $id === $parentUid && (integer) $pid === (integer) $row['pid']) {
+				return;
+			}
 			$relativeUid = 0 - (integer) $relativeUid;
 			if (FALSE === empty($possibleArea)) {
 				// Flux content area detected, override colPos to virtual Flux column number.
@@ -191,7 +195,6 @@ class ContentService implements SingletonInterface {
 	 * @return void
 	 */
 	public function moveRecord(array &$row, &$relativeTo, $parameters, DataHandler $tceMain) {
-		$row['tx_flux_column'] = $row['tx_flux_parent'] = NULL;
 		// Note: this condition is here in order to NOT perform any actions if
 		// the $relativeTo variable was passed by EXT:gridelements in which case
 		// it is invalid (not a negative/positive integer but a string).
@@ -218,7 +221,18 @@ class ContentService implements SingletonInterface {
 				$row['tx_flux_column'] = $relativeToRecord['tx_flux_column'];
 				$row['colPos'] = $relativeToRecord['colPos'];
 				$row['sorting'] = $tceMain->resorting('tt_content', $relativeToRecord['pid'], 'sorting', abs($relativeTo));
+			} elseif (0 < (integer) $relativeTo) {
+				// moving to first position in colPos, means that $relativeTo is the pid of the containing page
+				$row['sorting'] = $tceMain->getSortNumber('tt_content', 0, $relativeTo);
+				// neither change fields tx_flux_column nor tx_flux_parent here!
+			} else {
+				$row['tx_flux_parent'] = NULL;
+				$row['tx_flux_column'] = NULL;
 			}
+		} else {
+			// $relativeTo variable was passed by EXT:gridelements
+			$row['tx_flux_parent'] = NULL;
+			$row['tx_flux_column'] = NULL;
 		}
 		if (0 < $row['tx_flux_parent']) {
 			$row['colPos'] = self::COLPOS_FLUXCONTENT;
@@ -351,7 +365,7 @@ class ContentService implements SingletonInterface {
 	 * @return array
 	 */
 	protected function getTargetAreaStoredInSession($relativeTo) {
-		'' !== session_id() ?  : session_start();
+		'' !== session_id() ? : session_start();
 		return $_SESSION['target' . $relativeTo];
 	}
 

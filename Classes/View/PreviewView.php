@@ -46,6 +46,9 @@ class PreviewView {
 	const PREVIEW_SECTION = 'Preview';
 	const CONTROLLER_NAME = 'Content';
 
+	/**
+	 * @var array
+	 */
 	protected $templates = array(
 		'grid' => '<table cellspacing="0" cellpadding="0" id="content-grid-%s" class="flux-grid%s">
 						<tbody>
@@ -197,10 +200,13 @@ class PreviewView {
 	 * @param ProviderInterface $provider
 	 * @param array $row
 	 * @param Form $form
-	 * @return string
+	 * @return string|NULL
 	 */
 	protected function renderPreviewSection(ProviderInterface $provider, array $row, Form $form = NULL) {
 		$templatePathAndFilename = $provider->getTemplatePathAndFilename($row);
+		if (NULL === $templatePathAndFilename) {
+			return NULL;
+		}
 		$extensionKey = $provider->getExtensionKey($row);
 		$paths = $provider->getTemplatePaths($row);
 
@@ -337,6 +343,10 @@ class PreviewView {
 		$disableMoveAndNewButtons = FALSE;
 		$langMode = $dblist->tt_contentConfig['languageMode'];
 		$dragDropEnabled = FALSE;
+
+		// Necessary for edit button in workspace.
+		$dblist->tt_contentData['nextThree'][$row['uid']] = $row['uid'];
+
 		$rendered = $dblist->tt_content_drawHeader($row, $space, $disableMoveAndNewButtons, $langMode, $dragDropEnabled);
 		$rendered .= '<div class="t3-page-ce-body-inner">' . $dblist->tt_content_drawItem($row) . '</div>';
 		$rendered .= $footerRenderMethod->invokeArgs($dblist, array($row));
@@ -631,11 +641,11 @@ class PreviewView {
 	 * @codeCoverageIgnore
 	 * @param array $row
 	 * @param Column $column
-	 * @param $colPosFluxContent
-	 * @param $dblist
-	 * @param $target
-	 * @param $id
-	 * @param $content
+	 * @param integer $colPosFluxContent
+	 * @param PageLayoutView $dblist
+	 * @param integer $target
+	 * @param string $id
+	 * @param string $content
 	 * @return string
 	 */
 	protected function parseGridColumnTemplate(array $row, Column $column, $colPosFluxContent, $dblist, $target, $id, $content) {
